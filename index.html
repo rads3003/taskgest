@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tablero de Control y Foco - Operaciones</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Estilos personalizados */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      /* bg-slate-100 */
+    }
+
+    .kanban-column {
+      display: flex;
+      /* Añadido para que la columna sea flex y su contenido se estire */
+      flex-direction: column;
+      /* Contenido en columna */
+      max-height: 600px;
+      /* Altura máxima para las columnas Kanban antes de hacer scroll */
+    }
+
+    .task-container {
+      flex-grow: 1;
+      /* Permite que el contenedor de tareas ocupe el espacio disponible */
+      overflow-y: auto;
+      /* Barra lateral de desplazamiento vertical para las tareas */
+      padding-right: 8px;
+      /* Espacio para la barra de desplazamiento */
+    }
+
+    /* Estilo para la barra de desplazamiento de las columnas Kanban */
+    .task-container::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .task-container::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      /* bg-slate-200 */
+      border-radius: 10px;
+    }
+
+    .task-container::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      /* slate-400 */
+      border-radius: 10px;
+    }
+
+    .task-container::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+      /* slate-500 */
+    }
+
+    .task-card {
+      cursor: grab;
+      transition: background-color 0.2s, box-shadow 0.2s;
+      position: relative;
+      /* Necesario para posicionar el botón de eliminar */
+    }
+
+    .task-card:active {
+      cursor: grabbing;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .dragging {
+      opacity: 0.1;
+      /* Opacidad para la tarjeta que se está arrastrando */
+    }
+
+    .drag-over {
+      background-color: rgba(59, 130, 246, 0.1);
+      /* bg-blue-500 con opacidad */
+      border: 2px dashed rgba(59, 130, 246, 0.4);
+      /* border-blue-500 con opacidad */
+    }
+
+    .chart-container {
+      height: 250px;
+      /* Altura base para contenedores de gráficos */
+    }
+
+    /* Estilos para el menú contextual */
+    #contextMenu {
+      position: absolute;
+      display: none;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      padding: 8px 0;
+      z-index: 1000;
+      min-width: 150px;
+    }
+
+    #contextMenu button {
+      display: block;
+      width: 100%;
+      padding: 8px 16px;
+      text-align: left;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #contextMenu button:hover {
+      background-color: #f3f4f6;
+      /* bg-gray-100 */
+    }
+
+    /* Estilos para las etiquetas de estado en la tabla */
+    .status-badge {
+      display: inline-block;
+      padding: 0.2em 0.6em;
+      font-size: 0.75em;
+      font-weight: 600;
+      border-radius: 9999px;
+      /* rounded-full */
+      color: white;
+    }
+
+    /* Estilo para la barra de desplazamiento de la tabla */
+    #task-table-wrapper {
+      max-height: 400px;
+      /* Altura máxima para la tabla antes de hacer scroll */
+      overflow-y: auto;
+      padding-right: 8px;
+      /* Espacio para la barra de desplazamiento */
+    }
+
+    #task-table-wrapper::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #task-table-wrapper::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      /* bg-slate-200 */
+      border-radius: 10px;
+    }
+
+    .task-table-wrapper::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      /* slate-400 */
+      border-radius: 10px;
+    }
+
+    .task-table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+      /* slate-500 */
+    }
+
+    /* Estilos para el botón de eliminar en la tarjeta */
+    .task-card .delete-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: none;
+      border: none;
+      color: #ef4444;
+      /* red-500 */
+      font-size: 1.1em;
+      cursor: pointer;
+      opacity: 0;
+      /* Oculto por defecto */
+      transition: opacity 0.2s ease-in-out;
+      padding: 4px;
+      border-radius: 50%;
+      display: flex;
+      /* Para centrar el SVG */
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      /* Asegura que esté por encima del contenido de la tarjeta */
+    }
+
+    .task-card:hover .delete-btn {
+      opacity: 1;
+      /* Visible al pasar el ratón */
+    }
+
+    .task-card .delete-btn:hover {
+      background-color: rgba(239, 68, 68, 0.1);
+      /* red-500 con 10% de opacidad */
+    }
+  </style>
+</head>
+
+<body class="text-slate-800">
+
+  <div class="container mx-auto p-4 md:p-8">
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Tablero de Control y Foco</h1>
+      <p class="text-slate-600 mt-2">Herramienta para la gestión de prioridades de Operaciones</p>
+    </header>
+
+    <div class="flex justify-center mb-8">
+      <button id="addTaskBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                Añadir Nueva Tarea
+            </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div id="backlog" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Backlog</h2>
+        <div id="backlog-tasks" class="space-y-2 task-container"></div>
+      </div>
+      <div id="focus" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Foco Semana</h2>
+        <div id="focus-tasks" class="space-y-2 task-container"></div>
+      </div>
+      <div id="progress" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">En Progreso</h2>
+        <div id="progress-tasks" class="space-y-2 task-container"></div>
+      </div>
+      <div id="done" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Finalizado</h2>
+        <div id="done-tasks" class="space-y-2 task-container"></div>
+      </div>
+    </div>
+
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Dashboard Estadístico</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
+          <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Resumen por Estado</h3>
+          <div class="chart-container"><canvas id="statusChart"></canvas></div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
+          <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Tareas por Responsable</h3>
+          <div class="chart-container"><canvas id="assigneeChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Estadísticas Mensuales de Tareas</h2>
+      <div class="bg-slate-800 p-4 rounded-lg shadow-lg w-full">
+        <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Tareas Creadas y Finalizadas Mensualmente</h3>
+        <div class="chart-container h-[300px] md:h-[400px]"> <canvas id="monthlyTasksChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Planilla de Gestión de Tareas</h2>
+      <div class="bg-white p-4 rounded-lg shadow-lg overflow-x-auto" id="task-table-wrapper">
+        <table class="w-full text-sm text-left text-slate-600">
+          <thead class="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 bg-white z-10">
+            <tr>
+              <th scope="col" class="px-6 py-3">Tarea</th>
+              <th scope="col" class="px-6 py-3">Responsable</th>
+              <th scope="col" class="px-6 py-3">Fecha Creación</th>
+              <th scope="col" class="px-6 py-3">Fecha Finalización</th>
+              <th scope="col" class="px-6 py-3">Categoría</th>
+              <th scope="col" class="px-6 py-3">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="task-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+      <h2 id="modalTitle" class="text-2xl font-bold mb-6">Añadir Tarea</h2>
+      <form id="taskForm">
+        <input type="hidden" id="task-id">
+        <input type="hidden" id="task-creation-date">
+        <input type="hidden" id="task-completion-date">
+        <div class="mb-4">
+          <label for="taskTitle" class="block text-sm font-medium text-slate-700 mb-1">Título</label>
+          <input type="text" id="taskTitle" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+        </div>
+        <div class="mb-4">
+          <label for="taskDesc" class="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+          <textarea id="taskDesc" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+        </div>
+        <div class="mb-4">
+          <label for="taskResponsible" class="block text-sm font-medium text-slate-700 mb-1">Responsable</label>
+          <input type="text" id="taskResponsible" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+        </div>
+        <div class="mb-6">
+          <label for="taskCategory" class="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+          <select id="taskCategory" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="assigned">Asignado</option>
+                        <option value="received">Recibido</option>
+                        <option value="in_process">En Proceso</option>
+                        <option value="finished">Finalizado</option>
+                    </select>
+        </div>
+        <div class="flex justify-end space-x-4">
+          <button type="button" id="cancelBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="contextMenu">
+    <button id="editTaskBtn">✏️ Editar Tarea</button>
+    <button id="deleteTaskBtn">🗑️ Eliminar Tarea</button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+            const taskModal = document.getElementById('taskModal');
+            const taskForm = document.getElementById('taskForm');
+            const contextMenu = document.getElementById('contextMenu');
+            
+            let charts = {};
+            let currentContextMenuTask = null; // Para el menú contextual
+            let draggedItem = null;
+            
+            // ¡IMPORTANTE! Esta es la URL de tu Google Apps Script
+            const APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxqps6yuTqFzzE7e6hP-GowZWY9w-DKt_inKxNvZWTo-wfapeAijyFnlgQtSyoj5xHc/exec'; 
+
+            // CATEGORÍAS ACTUALIZADAS SEGÚN TU SOLICITUD
+            const categoryMap = {
+                'assigned': { label: 'Asignado', color: '#3b82f6' },     /* blue-500, antes strategic */
+                'received': { label: 'Recibido', color: '#ef4444' },     /* red-500, antes crisis */
+                'in_process': { label: 'En Proceso', color: '#f59e0b' }, /* amber-500, antes interruptions */
+                'finished': { label: 'Finalizado', color: '#64748b' }   /* slate-500, antes distractions */
+            };
+
+            const statusMap = { // Este mapa de estado se mantiene igual
+                'backlog': { label: 'Backlog', color: '#f59e0b' },
+                'focus': { label: 'Foco Semana', color: '#3b82f6' },
+                'progress': { label: 'En Progreso', color: '#ef4444' },
+                'done': { label: 'Finalizado', color: '#10b981' } /* emerald-500 */
+            };
+            const lightColor = 'rgba(230, 230, 230, 0.8)'; // Color claro para texto en gráficos
+            const gridColor = 'rgba(255, 255, 255, 0.2)'; // Color de rejilla en gráficos
+
+            let allTasks = []; // Este array ahora se poblará desde la Google Sheet
+
+            // --- FUNCIONES PARA INTERACTUAR CON GOOGLE APPS SCRIPT ---
+
+            async function fetchData(action, taskData = {}) {
+                try {
+                    const url = APPS_SCRIPT_WEB_APP_URL + '?action=' + action; // Para GET requests
+                    const options = {
+                        method: action === 'read' ? 'GET' : 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8' // Es importante para Apps Script
+                        },
+                        body: action === 'read' ? null : JSON.stringify({ action: action, task: taskData })
+                    };
+
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    return data;
+                } catch (error) {
+                    console.error('Error fetching data:', error);
+                    alert('Error al comunicar con el servidor: ' + error.message);
+                    return null;
+                }
+            }
+
+            // Función para cargar todas las tareas desde Google Sheet
+            async function loadAllTasks() {
+                const data = await fetchData('read');
+                // Asegúrate de que los datos sean un array válido. Si no lo son, se inicializa `allTasks` como vacío.
+                if (data && Array.isArray(data)) { 
+                    allTasks = data.map(task => ({
+                        ...task,
+                        // Asegurar que las fechas vacías sean string vacíos para evitar 'null' o 'undefined'
+                        completionDate: task.completionDate || '', 
+                        // Asegurar que lastModified sea una cadena de fecha válida
+                        lastModified: task.lastModified || new Date().toISOString()
+                    }));
+                    // Ordenar por lastModified desde el principio (las más recientes primero)
+                    allTasks.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+                } else {
+                    console.warn('No se pudieron cargar las tareas desde Google Sheet o los datos no son válidos. Inicializando con array vacío.');
+                    allTasks = []; // Asegura que allTasks esté vacío si hay un problema
+                }
+                // Siempre renderiza y actualiza los dashboards y la tabla después de intentar cargar las tareas
+                renderTasksToKanban(); 
+                updateAll(); 
+            }
+
+            // Renderiza las tareas del array allTasks a las columnas Kanban
+            function renderTasksToKanban() {
+                // Limpiar todas las columnas primero para evitar duplicados visuales
+                document.getElementById('backlog-tasks').innerHTML = '';
+                document.getElementById('focus-tasks').innerHTML = '';
+                document.getElementById('progress-tasks').innerHTML = '';
+                document.getElementById('done-tasks').innerHTML = '';
+
+                allTasks.forEach(task => {
+                    const card = document.createElement('div');
+                    card.className = 'task-card bg-white p-2 rounded-lg shadow border-l-4';
+                    card.draggable = true;
+                    
+                    // Asegúrate de que task.status exista y sea válido para un id de columna
+                    const targetColumnId = task.status && document.getElementById(`${task.status}-tasks`) ? `${task.status}-tasks` : 'backlog-tasks';
+                    
+                    updateTaskCardDisplay(card, task); // Usar los datos existentes, incluyendo fechas y lastModified
+                    document.getElementById(targetColumnId).appendChild(card);
+                    setupTaskCard(card);
+                    
+                    // Asegurar que las tareas iniciales en 'done' tengan el estilo correcto
+                    if (task.status === 'done') {
+                        card.classList.add('opacity-70');
+                        card.querySelector('h3').classList.add('line-through');
+                        card.querySelector('p').classList.add('line-through');
+                    }
+                });
+            }
+
+            // --- FIN FUNCIONES DE INTERACCIÓN ---
+
+
+            // Función principal para actualizar todos los componentes de la UI y datos
+            function updateAll() {
+                updateCharts();
+                updateTaskTable();
+            }
+
+            // Actualiza todos los gráficos del dashboard
+            function updateCharts() {
+                // Destruye gráficos existentes para evitar conflictos al re-renderizar
+                Object.values(charts).forEach(chart => chart.destroy());
+
+                const statusCounts = { backlog: 0, focus: 0, progress: 0, done: 0 };
+                allTasks.forEach(task => {
+                    if (statusCounts.hasOwnProperty(task.status)) { // Asegura que el estado existe en el mapa
+                        statusCounts[task.status]++;
+                    } else {
+                        console.warn(`Estado desconocido encontrado: ${task.status}. Ignorando en gráficos de estado.`);
+                    }
+                });
+
+                charts.status = new Chart(document.getElementById('statusChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: Object.values(statusMap).map(s => s.label),
+                        datasets: [{ data: Object.values(statusCounts), backgroundColor: Object.values(statusMap).map(s => s.color) }]
+                    },
+                    options: getChartOptions()
+                });
+
+                const assigneeCounts = allTasks.reduce((acc, task) => {
+                    if (task.responsible) acc[task.responsible] = (acc[task.responsible] || 0) + 1;
+                    return acc;
+                }, {});
+                charts.assignee = new Chart(document.getElementById('assigneeChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(assigneeCounts),
+                        datasets: [{ 
+                            data: Object.values(assigneeCounts), 
+                            // Asigna colores de categoryMap, y añade algunos extras si hay más responsables que categorías
+                            backgroundColor: Object.values(categoryMap).map(c => c.color).concat(['#eab308', '#ec4899', '#14b8a6', '#9333ea', '#db2777']) 
+                        }]
+                    },
+                    options: getChartOptions(true)
+                });
+
+                const monthlyData = getMonthlyTaskData(allTasks);
+                charts.monthlyTasks = new Chart(document.getElementById('monthlyTasksChart'), {
+                    type: 'line',
+                    data: {
+                        labels: monthlyData.labels,
+                        datasets: [
+                            {
+                                label: 'Tareas Creadas',
+                                data: monthlyData.created,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'Tareas Finalizadas',
+                                data: monthlyData.completed,
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                tension: 0.3,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: lightColor, boxWidth: 12 } }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: lightColor, stepSize: 1 },
+                                grid: { color: gridColor }
+                            },
+                            x: {
+                                ticks: { color: lightColor },
+                                grid: { color: gridColor }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function getChartOptions(isDoughnut = false) {
+                const legendOptions = isDoughnut ? { position: 'right' } : { display: false };
+                return {
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { ...legendOptions, labels: { color: lightColor, boxWidth: 12 } } 
+                    },
+                    scales: isDoughnut ? {} : {
+                        y: { beginAtZero: true, ticks: { color: lightColor, stepSize: 1 }, grid: { color: gridColor } },
+                        x: { ticks: { color: lightColor }, grid: { color: gridColor } }
+                    }
+                };
+            }
+
+            function getMonthlyTaskData(tasks) {
+                const today = new Date();
+                const year = today.getFullYear();
+                const monthNames = [
+                    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+                ];
+
+                const createdByMonth = new Array(12).fill(0);
+                const completedByMonth = new Array(12).fill(0);
+
+                tasks.forEach(task => {
+                    if (task.creationDate) {
+                        const creationDate = new Date(task.creationDate);
+                        // Asegúrate de que el año sea el actual para el conteo mensual
+                        if (creationDate.getFullYear() === year) {
+                            createdByMonth[creationDate.getMonth()]++;
+                        }
+                    }
+                    if (task.status === 'done' && task.completionDate) {
+                        const completionDate = new Date(task.completionDate);
+                        // Asegúrate de que el año sea el actual para el conteo mensual
+                        if (completionDate.getFullYear() === year) {
+                            completedByMonth[completionDate.getMonth()]++;
+                        }
+                    }
+                });
+
+                return {
+                    labels: monthNames,
+                    created: createdByMonth,
+                    completed: completedByMonth
+                };
+            }
+
+            function updateTaskTable() {
+                const tableBody = document.getElementById('task-table-body');
+                tableBody.innerHTML = '';
+
+                allTasks.forEach(task => {
+                    const statusInfo = statusMap[task.status] || {label: 'Desconocido', color: '#cccccc'}; // Fallback si el estado es desconocido
+                    const categoryInfo = categoryMap[task.category] || {label: 'Desconocido', color: '#cccccc'}; // Fallback si la categoría es desconocida
+                    const row = tableBody.insertRow();
+                    row.className = 'bg-white border-b hover:bg-slate-50';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-slate-900">${task.title}</td>
+                        <td class="px-6 py-4">${task.responsible}</td>
+                        <td class="px-6 py-4">${task.creationDate}</td>
+                        <td class="px-6 py-4">${task.completionDate || 'N/A'}</td> 
+                        <td class="px-6 py-4">${categoryInfo.label}</td>
+                        <td class="px-6 py-4"><span class="status-badge" style="background-color: ${statusInfo.color};">${statusInfo.label}</span></td>`;
+                });
+            }
+            
+            // Función que actualiza los data-atributos y el display visual de una tarjeta
+            function updateTaskCardDisplay(card, data) {
+                card.dataset.id = data.id || `task-${Date.now()}`; // Asigna un ID si no tiene
+                Object.keys(data).forEach(key => { card.dataset[key] = data[key]; }); // Actualiza todos los data-atributos
+                
+                // Usa un color por defecto si la categoría no se encuentra
+                const cardCategoryColor = categoryMap[data.category] ? categoryMap[data.category].color : '#cccccc'; 
+                card.style.borderLeftColor = cardCategoryColor; // Color del borde según categoría
+                card.innerHTML = `
+                    <h3 class="font-semibold text-sm leading-tight">${data.title}</h3>
+                    <p class="text-xs text-slate-600 mt-1">${data.description}</p>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-xs text-slate-500 font-medium">${data.responsible}</span>
+                        <span class="text-xs text-slate-500"><b>Creación:</b> ${data.creationDate}</span>
+                    </div>
+                    <button class="delete-btn" data-id="${data.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.58.275-2.314.593A3.31 3.31 0 0 0 3 6.03V16.5A3.25 3.25 0 0 0 6.25 19h7.5A3.25 3.25 0 0 0 17 16.5V6.03c0-.795-.352-1.51-1.006-1.992-.734-.318-1.52-.516-2.314-.593V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.828 0 1.5.672 1.5 1.5V6h-3V5.5c0-.828.672-1.5 1.5-1.5ZM9 8.25a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm3.25 0a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    `;
+                
+                // Actualizar el estilo de tachado y opacidad si está en la columna 'done'
+                const isDone = data.status === 'done';
+                card.classList.toggle('opacity-70', isDone);
+                card.querySelector('h3').classList.toggle('line-through', isDone);
+                card.querySelector('p').classList.toggle('line-through', isDone);
+
+                // Añadir event listener al botón de eliminar (DELEGACIÓN DE EVENTOS)
+                const deleteButton = card.querySelector('.delete-btn');
+                deleteButton.addEventListener('click', async (event) => {
+                    // Prevenir que el clic se propague al evento de arrastrar de la tarjeta
+                    event.stopPropagation(); 
+                    if (confirm('¿Estás seguro de que quieres eliminar esta tarea permanentemente?')) {
+                        const taskIdToDelete = deleteButton.dataset.id;
+                        const result = await fetchData('delete', { id: taskIdToDelete });
+                        if (result && result.success) {
+                            console.log('Task deleted from Sheet:', taskIdToDelete);
+                            await loadAllTasks(); // Recarga para sincronizar la UI
+                        } else {
+                            alert('Error al eliminar la tarea: ' + (result?.message || 'Error desconocido'));
+                        }
+                    }
+                });
+            }
+
+
+            // Modificada para persistencia
+            async function createTask(data) { 
+                data.creationDate = data.creationDate || new Date().toISOString().split('T')[0];
+                data.completionDate = data.completionDate || '';
+                data.lastModified = new Date().toISOString();
+                data.status = 'backlog'; // Las nuevas tareas siempre empiezan en backlog
+
+                data.id = `task-${Date.now()}`; 
+
+                const result = await fetchData('create', data);
+                if (result && result.success) {
+                    console.log('Task created on Sheet:', result.task);
+                    await loadAllTasks(); // Recargar todas las tareas para reflejar el cambio y mantener la sincronización
+                } else {
+                    alert('Error al crear la tarea: ' + (result?.message || 'Error desconocido'));
+                }
+            }
+
+            // Modificada para persistencia
+            async function updateTaskData(taskData) { // Ahora recibe directamente el objeto de datos de la tarea
+                taskData.lastModified = new Date().toISOString(); // Actualiza la fecha de modificación
+
+                const result = await fetchData('update', taskData);
+                if (result && result.success) {
+                    console.log('Task updated on Sheet:', result.task);
+                    await loadAllTasks(); // Recargar todas las tareas para reflejar el cambio y mantener la sincronización
+                } else {
+                    console.error('Failed to update task on Sheet.');
+                    alert('Error al actualizar la tarea: ' + (result?.message || 'Error desconocido'));
+                }
+            }
+
+
+            function openModal(mode = 'add', taskCard = null) {
+                taskForm.reset();
+                document.getElementById('modalTitle').textContent = mode === 'edit' ? 'Editar Tarea' : 'Añadir Tarea';
+                if (mode === 'edit' && taskCard) {
+                    taskForm.querySelector('#task-id').value = taskCard.dataset.id;
+                    taskForm.querySelector('#taskTitle').value = taskCard.dataset.title;
+                    taskForm.querySelector('#taskDesc').value = taskCard.dataset.description;
+                    taskForm.querySelector('#taskResponsible').value = taskCard.dataset.responsible;
+                    taskForm.querySelector('#taskCategory').value = taskCard.dataset.category;
+                    taskForm.querySelector('#task-creation-date').value = taskCard.dataset.creationDate;
+                    taskForm.querySelector('#task-completion-date').value = taskCard.dataset.completionDate || '';
+                } else {
+                    taskForm.querySelector('#task-id').value = '';
+                    taskForm.querySelector('#task-creation-date').value = new Date().toISOString().split('T')[0];
+                    taskForm.querySelector('#task-completion-date').value = '';
+                }
+                taskModal.style.display = 'flex';
+            }
+
+            function setupTaskCard(item) {
+                item.addEventListener('dragstart', () => {
+                    draggedItem = item;
+                    setTimeout(() => item.classList.add('dragging'), 0);
+                });
+                item.addEventListener('dragend', async () => { // Async aquí
+                    draggedItem = null;
+                    item.classList.remove('dragging');
+                    // updateAll() se llamará después de que la tarea se haya actualizado en la Sheet
+                });
+                // El evento contextmenu sigue ahí para el menú contextual, pero el botón de eliminar es más directo.
+                item.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    currentContextMenuTask = item;
+                    contextMenu.style.top = `${e.pageY}px`;
+                    contextMenu.style.left = `${e.pageX}px`;
+                    contextMenu.style.display = 'block';
+                });
+            }
+            
+            document.querySelectorAll('.kanban-column').forEach(col => {
+                col.addEventListener('dragover', e => { 
+                    e.preventDefault();
+                    col.classList.add('drag-over');
+                });
+                col.addEventListener('dragleave', () => {
+                    col.classList.remove('drag-over');
+                });
+                col.addEventListener('drop', async e => { // Async aquí
+                    e.preventDefault();
+                    col.classList.remove('drag-over');
+                    if (draggedItem) {
+                        const targetContainer = col.querySelector('.task-container');
+                        targetContainer.insertBefore(draggedItem, targetContainer.firstChild); 
+                        
+                        // Prepara los datos de la tarea para actualizar
+                        const taskData = {
+                            id: draggedItem.dataset.id,
+                            title: draggedItem.dataset.title,
+                            description: draggedItem.dataset.description,
+                            responsible: draggedItem.dataset.responsible,
+                            category: draggedItem.dataset.category,
+                            creationDate: draggedItem.dataset.creationDate,
+                            // Actualizar completionDate y status
+                            status: col.id, 
+                            completionDate: (col.id === 'done') ? new Date().toISOString().split('T')[0] : '',
+                        };
+                        
+                        // Llama a updateTaskData para persistir el cambio de status y fecha
+                        await updateTaskData(taskData); 
+                    }
+                });
+            });
+
+            document.getElementById('addTaskBtn').addEventListener('click', () => openModal('add'));
+            document.getElementById('cancelBtn').addEventListener('click', () => taskModal.style.display = 'none');
+            taskModal.addEventListener('click', e => { 
+                if (e.target === taskModal) taskModal.style.display = 'none'; 
+            });
+
+            taskForm.addEventListener('submit', async e => { // Async aquí
+                e.preventDefault();
+                const id = taskForm.querySelector('#task-id').value;
+                const data = {
+                    title: taskForm.querySelector('#taskTitle').value,
+                    description: taskForm.querySelector('#taskDesc').value,
+                    responsible: taskForm.querySelector('#taskResponsible').value,
+                    category: taskForm.querySelector('#taskCategory').value,
+                    creationDate: taskForm.querySelector('#task-creation-date').value, 
+                    completionDate: taskForm.querySelector('#task-completion-date').value 
+                };
+
+                if (id) {
+                    // Editar tarea existente
+                    // Incluye el ID y el status actual para la actualización
+                    data.id = id;
+                    data.status = document.querySelector(`[data-id="${id}"]`).dataset.status;
+                    await updateTaskData(data);
+                } else {
+                    // Crear nueva tarea
+                    await createTask(data); 
+                }
+                taskModal.style.display = 'none';
+                // updateAll() se llamará al final de createTask/updateTaskData
+            });
+            
+            contextMenu.addEventListener('click', e => e.stopPropagation());
+            window.addEventListener('click', () => contextMenu.style.display = 'none');
+
+            document.getElementById('editTaskBtn').addEventListener('click', () => {
+                if (currentContextMenuTask) {
+                    openModal('edit', currentContextMenuTask);
+                    contextMenu.style.display = 'none';
+                }
+            });
+
+            // Este botón de eliminar en el menú contextual sigue funcionando como alternativa.
+            document.getElementById('deleteTaskBtn').addEventListener('click', async () => { // Async aquí
+                if (currentContextMenuTask) {
+                    if (confirm('¿Estás seguro de que quieres eliminar esta tarea permanentemente?')) {
+                        const taskIdToDelete = currentContextMenuTask.dataset.id;
+                        const result = await fetchData('delete', { id: taskIdToDelete });
+                        if (result && result.success) {
+                            console.log('Task deleted from Sheet:', taskIdToDelete);
+                            await loadAllTasks(); // Recarga para sincronizar la UI
+                        } else {
+                            alert('Error al eliminar la tarea: ' + (result?.message || 'Error desconocido'));
+                        }
+                        contextMenu.style.display = 'none';
+                    }
+                }
+            });
+
+            // --- Carga inicial de tareas ---
+            // Se inicializa el tablero y los dashboards al cargar la página
+            loadAllTasks(); 
+
+            // Función para inicializar con tareas de ejemplo (solo para desarrollo/pruebas)
+            // Descomenta y llama a esta función solo si necesitas datos de prueba y no desde la Google Sheet
+            // function initializeWithSampleTasks() {
+            //     allTasks = [
+            //         { id: 'task-1722000000001', title: 'Revisar solicitud vacaciones', description: 'RRHH pide V°B° para Supervisor Rivas.', responsible: 'Juan', creationDate: '2025-07-28', completionDate: '', category: 'received', status: 'backlog', lastModified: '2025-07-28T10:00:00Z' },
+            //         { id: 'task-1722000000002', title: 'Analizar causas horas extras', description: 'Generar informe con plan de acción.', responsible: 'Carlos', creationDate: '2025-07-29', completionDate: '', category: 'assigned', status: 'focus', lastModified: '2025-07-29T09:30:00Z' },
+            //         { id: 'task-1722000000003', title: 'Resolver queja Cliente XYZ', description: 'Cliente reporta falla de cobertura.', responsible: 'Sofia', creationDate: '2025-07-26', completionDate: '', category: 'received', status: 'progress', lastModified: '2025-07-26T14:00:00Z' },
+            //         { id: 'task-1722000000004', title: 'Aprobar compra uniformes', description: 'Se envió orden de compra a Logística.', responsible: 'Luis', creationDate: '2025-07-24', completionDate: '2025-07-24', category: 'assigned', status: 'done', lastModified: '2025-07-24T11:00:00Z' },
+            //         { id: 'task-1722000000005', title: 'Reunión planificación Q2', description: 'Reunión estratégica de planificación trimestral.', responsible: 'Gerardo', creationDate: '2025-06-10', completionDate: '2025-06-15', category: 'assigned', status: 'done', lastModified: '2025-06-15T16:00:00Z' },
+            //         { id: 'task-172200000006', title: 'Auditoría de seguridad', description: 'Realizar auditoría interna de sistemas.', responsible: 'Ana', creationDate: '2025-06-20', completionDate: '', category: 'assigned', status: 'progress', lastModified: '2025-06-20T09:00:00Z' },
+            //         { id: 'task-172200000007', title: 'Actualizar manual de procedimientos', description: 'Añadir nuevos pasos para gestión de incidencias.', responsible: 'Pedro', creationDate: '2025-05-01', completionDate: '', category: 'assigned', status: 'backlog', lastModified: '2025-05-01T10:00:00Z' },
+            //         { id: 'task-172200000008', title: 'Capacitación nuevo software', description: 'Sesión de entrenamiento para equipo de soporte.', responsible: 'Laura', creationDate: '2025-05-05', completionDate: '2025-05-10', category: 'in_process', status: 'done', lastModified: '2025-05-10T15:00:00Z' },
+            //         { id: 'task-172200000009', title: 'Preparar informe anual', description: 'Recopilar datos financieros y operativos.', responsible: 'Juan', creationDate: '2025-04-12', completionDate: '', category: 'assigned', status: 'backlog', lastModified: '2025-04-12T08:00:00Z' },
+            //         { id: 'task-172200000010', title: 'Contratación nuevo personal', description: 'Proceso de selección para 3 vacantes completado.', responsible: 'Sofia', creationDate: '2025-04-18', completionDate: '2025-04-25', category: 'in_process', status: 'done', lastModified: '2025-04-25T17:00:00Z' },
+            //         { id: 'task-172200000011', title: 'Mantenimiento servidores', description: 'Rutina de mantenimiento preventivo realizada.', responsible: 'Carlos', creationDate: '2025-03-01', completionDate: '2025-03-05', category: 'assigned', status: 'done', lastModified: '2025-03-05T12:00:00Z' },
+            //         { id: 'task-172200000012', title: 'Desarrollar nueva funcionalidad', description: 'Implementar módulo de reportes avanzados.', responsible: 'Luis', creationDate: '2025-03-15', completionDate: '', category: 'assigned', status: 'backlog', lastModified: '2025-03-15T10:00:00Z' }
+            //     ];
+            //     renderTasksToKanban();
+            // }
+        });
+  </script>
+</body>
+
+</html>
