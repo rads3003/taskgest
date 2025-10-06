@@ -310,6 +310,7 @@
                         <option value="Operaciones">Operaciones</option>
                         <option value="Acreditación GGSS">Acreditación GGSS</option>
                         <option value="OS10">OS10</option>
+                        <option value="Planner">Planner</option>
                         <option value="SES">SES</option>
                         <option value="RRHH">RRHH</option>
                         <option value="Finanzas">Finanzas</option>
@@ -329,6 +330,7 @@
                         <option value="Operaciones">Operaciones</option>
                         <option value="Acreditación GGSS">Acreditación GGSS</option>
                         <option value="OS10">OS10</option>
+                        <option value="Planner">Planner</option>
                         <option value="SES">SES</option>
                         <option value="RRHH">RRHH</option>
                         <option value="Finanzas">Finanzas</option>
@@ -375,19 +377,19 @@
             let draggedItem = null;
             
             // ¡IMPORTANTE! Esta es la URL de tu Google Apps Script
-            const APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw_EOcw_e9HX_DRR2b_gTwL2-z4vP0fX8WzlSuDmk74mCyIMK56Hdhut59njt0At_aepA/exec'; 
+            const APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxqps6yuTqFzzE7e6hP-GowZWY9w-DKt_inKxNvZWTo-wfapeAijyFnlgQtSyoj5xHc/exec'; 
 
             // CATEGORÍAS ACTUALIZADAS SEGÚN TU SOLICITUD
             const categoryMap = {
-                'assigned': { label: 'Asignado', color: '#3b82f6' },     /* blue-500, antes strategic */
-                'received': { label: 'Recibido', color: '#ef4444' },     /* red-500, antes crisis */
+                'backlog': { label: 'Asignado', color: '#3b82f6' },     /* blue-500, antes strategic */
+                'focus': { label: 'Recibido', color: '#ef4444' },     /* red-500, antes crisis */
                 'in_process': { label: 'En Proceso', color: '#f59e0b' }, /* amber-500, antes interruptions */
                 'finished': { label: 'Finalizado', color: '#64748b' }   /* slate-500, antes distractions */
             };
 
             const statusMap = { // Este mapa de estado se mantiene igual
-                'backlog': { label: 'Backlog', color: '#f59e0b' },
-                'focus': { label: 'Foco Semana', color: '#3b82f6' },
+                'backlog': { label: 'Asignado', color: '#f59e0b' },
+                'focus': { label: 'Recibido', color: '#3b82f6' },
                 'progress': { label: 'En Progreso', color: '#ef4444' },
                 'done': { label: 'Finalizado', color: '#10b981' } /* emerald-500 */
             };
@@ -793,7 +795,7 @@
                 data.creationDate = data.creationDate || new Date().toISOString().split('T')[0];
                 data.completionDate = data.completionDate || '';
                 data.lastModified = new Date().toISOString();
-                data.status = 'backlog'; // Las nuevas tareas siempre empiezan en backlog
+                data.status = 'asignado'; // Las nuevas tareas siempre empiezan en backlog
 
                 data.id = `task-${Date.now()}`; 
 
