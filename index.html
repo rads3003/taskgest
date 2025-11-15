@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
    
     <style>
-        /* Estilos personalizados */
+        /* Estilos personalizados (mantenidos iguales) */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f1f5f9; /* bg-slate-100 */
@@ -140,15 +140,94 @@
         .task-card.deadline-passed {
             border-left-color: #ef4444 !important; /* Sobrescribe el color de categoría */
         }
+
+        /* Nuevos estilos para login */
+        #loginModal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        #loginForm {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        #mainContent {
+            display: none; /* Oculto hasta login exitoso */
+        }
+
+        /* Estilos para modal de detalles de tarea */
+        #taskDetailModal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #taskDetailContent {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        /* Estilos para sección de últimas tareas (siempre visible, arriba del botón) */
+        .last-tasks-section {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
     </style>
 </head>
 <body class="text-slate-800">
-    <div class="container mx-auto p-4 md:p-8">
+    <!-- Modal de Login -->
+    <div id="loginModal">
+        <form id="loginForm" class="bg-white rounded-lg shadow-2xl p-8">
+            <div class="text-center mb-6">
+                <img src="https://res.cloudinary.com/dway4iqeh/image/upload/v1763209064/logo_z1ffik.png" alt="Logo" class="mx-auto h-24 w-auto">
+            </div>
+            <h2 class="text-2xl font-bold mb-6 text-center">Iniciar Sesión</h2>
+            <div class="mb-4">
+                <label for="username" class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
+                <input type="text" id="username" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+            <div class="mb-6">
+                <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+                <input type="password" id="password" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+            <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Ingresar</button>
+        </form>
+    </div>
+
+    <!-- Contenido Principal (oculto inicialmente) -->
+    <div id="mainContent" class="container mx-auto p-4 md:p-8">
         <header class="mb-8 text-center">
             <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Tablero de Control y Foco</h1>
             <p class="text-slate-600 mt-2">Herramienta para la gestión de prioridades de Operaciones</p>
         </header>
-        <div class="flex justify-center mb-8">
+        <div class="flex flex-col items-center mb-8">
+            <!-- Sección de últimas 2 tareas (siempre visible, arriba del botón) -->
+            <div id="lastTasksSection" class="last-tasks-section">
+                <h3 class="font-bold text-sm mb-2">Últimas 2 Tareas Agregadas</h3>
+                <ul id="lastTasksList" class="space-y-2"></ul>
+            </div>
             <button id="addTaskBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
                 Añadir Nueva Tarea
@@ -298,6 +377,16 @@
             </form>
         </div>
     </div>
+    <!-- Modal para detalles de tarea -->
+    <div id="taskDetailModal">
+        <div id="taskDetailContent" class="bg-white rounded-lg shadow-2xl p-8">
+            <h2 class="text-2xl font-bold mb-6">Detalles de la Tarea</h2>
+            <div id="taskDetailBody"></div>
+            <div class="flex justify-end mt-6">
+                <button id="closeDetailBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cerrar</button>
+            </div>
+        </div>
+    </div>
     <div id="contextMenu">
         <button id="editTaskBtn">✏️ Editar Tarea</button>
         <button id="deleteTaskBtn">🗑️ Eliminar Tarea</button>
@@ -307,6 +396,11 @@
             const taskModal = document.getElementById('taskModal');
             const taskForm = document.getElementById('taskForm');
             const contextMenu = document.getElementById('contextMenu');
+            const loginModal = document.getElementById('loginModal');
+            const loginForm = document.getElementById('loginForm');
+            const mainContent = document.getElementById('mainContent');
+            const taskDetailModal = document.getElementById('taskDetailModal');
+            const closeDetailBtn = document.getElementById('closeDetailBtn');
            
             let charts = {};
             let currentContextMenuTask = null; // Para el menú contextual
@@ -330,6 +424,29 @@
             const lightColor = 'rgba(230, 230, 230, 0.8)'; // Color claro para texto en gráficos
             const gridColor = 'rgba(255, 255, 255, 0.2)'; // Color de rejilla en gráficos
             let allTasks = []; // Este array ahora se poblará desde la Google Sheet
+
+            // Credenciales hardcoded (no seguro para producción, pero como solicitado)
+            const users = {
+                'rduran': 'rd1234',
+                'hcortes': 'hc1234',
+                'mmartinez': 'mm1234',
+                'jvergara': 'jv1234'
+            };
+
+            // Manejar login
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = document.getElementById('username').value.toLowerCase();
+                const password = document.getElementById('password').value;
+                if (users[username] && users[username] === password) {
+                    loginModal.style.display = 'none';
+                    mainContent.style.display = 'block';
+                    loadAllTasks(); // Cargar tareas después de login
+                } else {
+                    alert('Usuario o contraseña incorrectos');
+                }
+            });
+
             // --- FUNCIONES PARA INTERACTUAR CON GOOGLE APPS SCRIPT ---
             async function fetchData(action, taskData = {}) {
                 try {
@@ -378,6 +495,7 @@
                 // Siempre renderiza y actualiza los dashboards y la tabla después de intentar cargar las tareas
                 renderTasksToKanban();
                 updateAll();
+                updateLastTasksSection(); // Actualizar sección de últimas tareas
             }
             // Renderiza las tareas del array allTasks a las columnas Kanban
             function renderTasksToKanban() {
@@ -595,8 +713,9 @@
                 allTasks.forEach(task => {
                     const statusInfo = statusMap[task.status] || {label: 'Desconocido', color: '#cccccc'}; // Fallback si el estado es desconocido
                     const categoryInfo = categoryMap[task.category] || {label: 'Desconocido', color: '#cccccc'}; // Fallback si la categoría es desconocida
-                    const row = tableBody.insertRow();
-                    row.className = 'bg-white border-b hover:bg-slate-50';
+                    const row = document.createElement('tr');
+                    row.className = 'bg-white border-b hover:bg-slate-50 cursor-pointer';
+                    row.dataset.taskId = task.id;
                     row.innerHTML = `
                         <td class="px-6 py-4 font-medium text-slate-900">${task.title || ''}</td>
                         <td class="px-6 py-4">${task.responsible || ''}</td>
@@ -606,9 +725,53 @@
                         <td class="px-6 py-4">${task.completionDate || 'N/A'}</td>
                         <td class="px-6 py-4">${categoryInfo.label}</td>
                         <td class="px-6 py-4"><span class="status-badge" style="background-color: ${statusInfo.color};">${statusInfo.label}</span></td>`;
+                    tableBody.appendChild(row);
+
+                    // Evento click para abrir modal de detalles
+                    row.addEventListener('click', () => {
+                        showTaskDetails(task);
+                    });
                 });
             }
-           
+
+            // Función para mostrar detalles de tarea en modal
+            function showTaskDetails(task) {
+                const detailBody = document.getElementById('taskDetailBody');
+                detailBody.innerHTML = `
+                    <p><strong>Título:</strong> ${task.title}</p>
+                    <p><strong>Descripción:</strong> ${task.description}</p>
+                    <p><strong>Responsable:</strong> ${task.responsible}</p>
+                    <p><strong>Solicitante:</strong> ${task.requester}</p>
+                    <p><strong>Fecha Asignación:</strong> ${task.creationDate || 'N/A'}</p>
+                    <p><strong>Fecha Límite:</strong> ${task.deadline || 'N/A'}</p>
+                    <p><strong>Fecha Finalización:</strong> ${task.completionDate || 'N/A'}</p>
+                    <p><strong>Categoría:</strong> ${categoryMap[task.category]?.label || 'Desconocido'}</p>
+                    <p><strong>Estado:</strong> ${statusMap[task.status]?.label || 'Desconocido'}</p>
+                `;
+                taskDetailModal.style.display = 'flex';
+            }
+
+            // Cerrar modal de detalles
+            closeDetailBtn.addEventListener('click', () => {
+                taskDetailModal.style.display = 'none';
+            });
+            taskDetailModal.addEventListener('click', (e) => {
+                if (e.target === taskDetailModal) taskDetailModal.style.display = 'none';
+            });
+
+            // Función para actualizar sección de últimas 2 tareas
+            function updateLastTasksSection() {
+                const lastTasksList = document.getElementById('lastTasksList');
+                lastTasksList.innerHTML = '';
+                const lastTwoTasks = allTasks.slice(0, 2); // Las 2 más recientes (ya ordenadas por lastModified)
+                lastTwoTasks.forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = 'text-xs text-slate-700';
+                    li.textContent = `${task.title} (${task.creationDate})`;
+                    lastTasksList.appendChild(li);
+                });
+            }
+
             // Función para calcular el countdown (días restantes)
             function calculateCountdown(deadline) {
                 if (!deadline) return '';
@@ -839,28 +1002,6 @@
                     }
                 }
             });
-            // --- Carga inicial de tareas ---
-            // Se inicializa el tablero y los dashboards al cargar la página
-            loadAllTasks();
-            // Función para inicializar con tareas de ejemplo (solo para desarrollo/pruebas)
-            // Descomenta y llama a esta función solo si necesitas datos de prueba y no desde la Google Sheet
-            // function initializeWithSampleTasks() {
-            // allTasks = [
-            // { id: 'task-1722000000001', title: 'Revisar solicitud vacaciones', description: 'RRHH pide V°B° para Supervisor Rivas.', responsible: 'Juan', requester: 'RRHH', deadline: '2025-10-05', creationDate: '2025-07-28', completionDate: '', category: 'received', status: 'backlog', lastModified: '2025-07-28T10:00:00Z' },
-            // { id: 'task-1722000000002', title: 'Analizar causas horas extras', description: 'Generar informe con plan de acción.', responsible: 'Carlos', requester: 'Finanzas', deadline: '2025-10-10', creationDate: '2025-07-29', completionDate: '', category: 'assigned', status: 'focus', lastModified: '2025-07-29T09:30:00Z' },
-            // { id: 'task-1722000000003', title: 'Resolver queja Cliente XYZ', description: 'Cliente reporta falla de cobertura.', responsible: 'Sofia', requester: 'Comercial', deadline: '2025-09-28', creationDate: '2025-07-26', completionDate: '', category: 'received', status: 'progress', lastModified: '2025-07-26T14:00:00Z' },
-            // { id: 'task-1722000000004', title: 'Aprobar compra uniformes', description: 'Se envió orden de compra a Logística.', responsible: 'Luis', requester: 'Logística', deadline: '2025-07-30', creationDate: '2025-07-24', completionDate: '2025-07-24', category: 'assigned', status: 'done', lastModified: '2025-07-24T11:00:00Z' },
-            // { id: 'task-1722000000005', title: 'Reunión planificación Q2', description: 'Reunión estratégica de planificación trimestral.', responsible: 'Gerardo', requester: 'Operaciones', deadline: '2025-06-20', creationDate: '2025-06-10', completionDate: '2025-06-15', category: 'assigned', status: 'done', lastModified: '2025-06-15T16:00:00Z' },
-            // { id: 'task-172200000006', title: 'Auditoría de seguridad', description: 'Realizar auditoría interna de sistemas.', responsible: 'Ana', requester: 'SES', deadline: '2025-06-25', creationDate: '2025-06-20', completionDate: '', category: 'assigned', status: 'progress', lastModified: '2025-06-20T09:00:00Z' },
-            // { id: 'task-172200000007', title: 'Actualizar manual de procedimientos', description: 'Añadir nuevos pasos para gestión de incidencias.', responsible: 'Pedro', requester: 'RRHH', deadline: '2025-05-15', creationDate: '2025-05-01', completionDate: '', category: 'assigned', status: 'backlog', lastModified: '2025-05-01T10:00:00Z' },
-            // { id: 'task-172200000008', title: 'Capacitación nuevo software', description: 'Sesión de entrenamiento para equipo de soporte.', responsible: 'Laura', requester: 'TI', deadline: '2025-05-12', creationDate: '2025-05-05', completionDate: '2025-05-10', category: 'in_process', status: 'done', lastModified: '2025-05-10T15:00:00Z' },
-            // { id: 'task-172200000009', title: 'Preparar informe anual', description: 'Recopilar datos financieros y operativos.', responsible: 'Juan', requester: 'Finanzas', deadline: '2025-04-20', creationDate: '2025-04-12', completionDate: '', category: 'assigned', status: 'backlog', lastModified: '2025-04-12T08:00:00Z' },
-            // { id: 'task-172200000010', title: 'Contratación nuevo personal', description: 'Proceso de selección para 3 vacantes completado.', responsible: 'Sofia', requester: 'RRHH', deadline: '2025-04-30', creationDate: '2025-04-18', completionDate: '2025-04-25', category: 'in_process', status: 'done', lastModified: '2025-04-25T17:00:00Z' },
-            // { id: 'task-172200000011', title: 'Mantenimiento servidores', description: 'Rutina de mantenimiento preventivo realizada.', responsible: 'Carlos', requester: 'TI', deadline: '2025-03-10', creationDate: '2025-03-01', completionDate: '2025-03-05', category: 'assigned', status: 'done', lastModified: '2025-03-05T12:00:00Z' },
-            // { id: 'task-172200000012', title: 'Desarrollar nueva funcionalidad', description: 'Implementar módulo de reportes avanzados.', responsible: 'Luis', requester: 'Operaciones', deadline: '2025-03-20', creationDate: '2025-03-15', completionDate: '', category: 'assigned', status: 'backlog', lastModified: '2025-03-15T10:00:00Z' }
-            // ];
-            // renderTasksToKanban();
-            // }
         });
 
         function filtrarTablaPorResponsable() {
