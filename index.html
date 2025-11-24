@@ -1,326 +1,385 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tablero de Control y Seguimiento - Operaciones</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-   
-    <style>
-        /* Estilos personalizados (mantenidos iguales) */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9; /* bg-slate-100 */
-        }
-        .kanban-column {
-            display: flex; /* Añadido para que la columna sea flex y su contenido se estire */
-            flex-direction: column; /* Contenido en columna */
-            max-height: 600px; /* Altura máxima para las columnas Kanban antes de hacer scroll */
-        }
-        .task-container {
-            flex-grow: 1; /* Permite que el contenedor de tareas ocupe el espacio disponible */
-            overflow-y: auto; /* Barra lateral de desplazamiento vertical para las tareas */
-            padding-right: 8px; /* Espacio para la barra de desplazamiento */
-        }
-        /* Estilo para la barra de desplazamiento de las columnas Kanban */
-        .task-container::-webkit-scrollbar {
-            width: 8px;
-        }
-        .task-container::-webkit-scrollbar-track {
-            background: #e2e8f0; /* bg-slate-200 */
-            border-radius: 10px;
-        }
-        .task-container::-webkit-scrollbar-thumb {
-            background: #94a3b8; /* slate-400 */
-            border-radius: 10px;
-        }
-        .task-container::-webkit-scrollbar-thumb:hover {
-            background: #64748b; /* slate-500 */
-        }
-        .task-card {
-            cursor: grab;
-            transition: background-color 0.2s, box-shadow 0.2s;
-            position: relative; /* Necesario para posicionar el botón de eliminar */
-        }
-        .task-card:active {
-            cursor: grabbing;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        .dragging {
-            opacity: 0.1; /* Opacidad para la tarjeta que se está arrastrando */
-        }
-        .drag-over {
-            background-color: rgba(59, 130, 246, 0.1); /* bg-blue-500 con opacidad */
-            border: 2px dashed rgba(59, 130, 246, 0.4); /* border-blue-500 con opacidad */
-        }
-        .chart-container {
-            height: 250px; /* Altura base para contenedores de gráficos */
-        }
-        /* Estilos para el menú contextual */
-        #contextMenu {
-            position: absolute;
-            display: none;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            padding: 8px 0;
-            z-index: 1000;
-            min-width: 150px;
-        }
-        #contextMenu button {
-            display: block;
-            width: 100%;
-            padding: 8px 16px;
-            text-align: left;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        #contextMenu button:hover {
-            background-color: #f3f4f6; /* bg-gray-100 */
-        }
-        /* Estilos para las etiquetas de estado en la tabla */
-        .status-badge {
-            display: inline-block;
-            padding: 0.2em 0.6em;
-            font-size: 0.75em;
-            font-weight: 600;
-            border-radius: 9999px; /* rounded-full */
-            color: white;
-        }
-        /* Estilo para la barra de desplazamiento de la tabla */
-        #task-table-wrapper {
-            max-height: 400px; /* Altura máxima para la tabla antes de hacer scroll */
-            overflow-y: auto;
-            padding-right: 8px; /* Espacio para la barra de desplazamiento */
-        }
-        #task-table-wrapper::-webkit-scrollbar {
-            width: 8px;
-        }
-        #task-table-wrapper::-webkit-scrollbar-track {
-            background: #e2e8f0; /* bg-slate-200 */
-            border-radius: 10px;
-        }
-        .task-table-wrapper::-webkit-scrollbar-thumb {
-            background: #94a3b8; /* slate-400 */
-            border-radius: 10px;
-        }
-        .task-table-wrapper::-webkit-scrollbar-thumb:hover {
-            background: #64748b; /* slate-500 */
-        }
-        /* Estilos para el botón de eliminar en la tarjeta */
-        .task-card .delete-btn {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            background: none;
-            border: none;
-            color: #ef4444; /* red-500 */
-            font-size: 1.1em;
-            cursor: pointer;
-            opacity: 0; /* Oculto por defecto */
-            transition: opacity 0.2s ease-in-out;
-            padding: 4px;
-            border-radius: 50%;
-            display: flex; /* Para centrar el SVG */
-            align-items: center;
-            justify-content: center;
-            z-index: 10; /* Asegura que esté por encima del contenido de la tarjeta */
-        }
-        .task-card:hover .delete-btn {
-            opacity: 1; /* Visible al pasar el ratón */
-        }
-        .task-card .delete-btn:hover {
-            background-color: rgba(239, 68, 68, 0.1); /* red-500 con 10% de opacidad */
-        }
-        /* Estilos para fecha límite pasada */
-        .task-card.deadline-passed {
-            border-left-color: #ef4444 !important; /* Sobrescribe el color de categoría */
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tablero de Control y Seguimiento - Operaciones</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-        /* Nuevos estilos para login */
-        #loginModal {
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-        #loginForm {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-        }
-        #mainContent {
-            display: none; /* Oculto hasta login exitoso */
-        }
+  <style>
+    /* Estilos personalizados (mantenidos iguales) */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      /* bg-slate-100 */
+    }
 
-        /* Estilos para modal de detalles de tarea */
-        #taskDetailModal {
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        #taskDetailContent {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
+    .kanban-column {
+      display: flex;
+      /* Añadido para que la columna sea flex y su contenido se estire */
+      flex-direction: column;
+      /* Contenido en columna */
+      max-height: 600px;
+      /* Altura máxima para las columnas Kanban antes de hacer scroll */
+    }
 
-        /* Estilos para sección de últimas tareas (siempre visible, arriba del botón) */
-        .last-tasks-section {
-            background-color: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            min-width: 200px;
-            padding: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-    </style>
+    .task-container {
+      flex-grow: 1;
+      /* Permite que el contenedor de tareas ocupe el espacio disponible */
+      overflow-y: auto;
+      /* Barra lateral de desplazamiento vertical para las tareas */
+      padding-right: 8px;
+      /* Espacio para la barra de desplazamiento */
+    }
+
+    /* Estilo para la barra de desplazamiento de las columnas Kanban */
+    .task-container::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .task-container::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      /* bg-slate-200 */
+      border-radius: 10px;
+    }
+
+    .task-container::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      /* slate-400 */
+      border-radius: 10px;
+    }
+
+    .task-container::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+      /* slate-500 */
+    }
+
+    .task-card {
+      cursor: grab;
+      transition: background-color 0.2s, box-shadow 0.2s;
+      position: relative;
+      /* Necesario para posicionar el botón de eliminar */
+    }
+
+    .task-card:active {
+      cursor: grabbing;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .dragging {
+      opacity: 0.1;
+      /* Opacidad para la tarjeta que se está arrastrando */
+    }
+
+    .drag-over {
+      background-color: rgba(59, 130, 246, 0.1);
+      /* bg-blue-500 con opacidad */
+      border: 2px dashed rgba(59, 130, 246, 0.4);
+      /* border-blue-500 con opacidad */
+    }
+
+    .chart-container {
+      height: 250px;
+      /* Altura base para contenedores de gráficos */
+    }
+
+    /* Estilos para el menú contextual */
+    #contextMenu {
+      position: absolute;
+      display: none;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      padding: 8px 0;
+      z-index: 1000;
+      min-width: 150px;
+    }
+
+    #contextMenu button {
+      display: block;
+      width: 100%;
+      padding: 8px 16px;
+      text-align: left;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #contextMenu button:hover {
+      background-color: #f3f4f6;
+      /* bg-gray-100 */
+    }
+
+    /* Estilos para las etiquetas de estado en la tabla */
+    .status-badge {
+      display: inline-block;
+      padding: 0.2em 0.6em;
+      font-size: 0.75em;
+      font-weight: 600;
+      border-radius: 9999px;
+      /* rounded-full */
+      color: white;
+    }
+
+    /* Estilo para la barra de desplazamiento de la tabla */
+    #task-table-wrapper {
+      max-height: 400px;
+      /* Altura máxima para la tabla antes de hacer scroll */
+      overflow-y: auto;
+      padding-right: 8px;
+      /* Espacio para la barra de desplazamiento */
+    }
+
+    #task-table-wrapper::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #task-table-wrapper::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      /* bg-slate-200 */
+      border-radius: 10px;
+    }
+
+    .task-table-wrapper::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      /* slate-400 */
+      border-radius: 10px;
+    }
+
+    .task-table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+      /* slate-500 */
+    }
+
+    /* Estilos para el botón de eliminar en la tarjeta */
+    .task-card .delete-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: none;
+      border: none;
+      color: #ef4444;
+      /* red-500 */
+      font-size: 1.1em;
+      cursor: pointer;
+      opacity: 0;
+      /* Oculto por defecto */
+      transition: opacity 0.2s ease-in-out;
+      padding: 4px;
+      border-radius: 50%;
+      display: flex;
+      /* Para centrar el SVG */
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      /* Asegura que esté por encima del contenido de la tarjeta */
+    }
+
+    .task-card:hover .delete-btn {
+      opacity: 1;
+      /* Visible al pasar el ratón */
+    }
+
+    .task-card .delete-btn:hover {
+      background-color: rgba(239, 68, 68, 0.1);
+      /* red-500 con 10% de opacidad */
+    }
+
+    /* Estilos para fecha límite pasada */
+    .task-card.deadline-passed {
+      border-left-color: #ef4444 !important;
+      /* Sobrescribe el color de categoría */
+    }
+
+    /* Nuevos estilos para login */
+    #loginModal {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    #loginForm {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    #mainContent {
+      display: none;
+      /* Oculto hasta login exitoso */
+    }
+
+    /* Estilos para modal de detalles de tarea */
+    #taskDetailModal {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    #taskDetailContent {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    /* Estilos para sección de últimas tareas (siempre visible, arriba del botón) */
+    .last-tasks-section {
+      background-color: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      min-width: 200px;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+  </style>
 </head>
-<body class="text-slate-800">
-    <!-- Modal de Login -->
-    <div id="loginModal">
-        <form id="loginForm" class="bg-white rounded-lg shadow-2xl p-8">
-            <div class="text-center mb-6">
-                <img src="https://res.cloudinary.com/dway4iqeh/image/upload/v1763209064/logo_z1ffik.png" alt="Logo" class="mx-auto h-24 w-auto">
-            </div>
-            <h2 class="text-2xl font-bold mb-6 text-center">Iniciar Sesión</h2>
-            <div class="mb-4">
-                <label for="username" class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
-                <input type="text" id="username" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-            </div>
-            <div class="mb-6">
-                <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-                <input type="password" id="password" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-            </div>
-            <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Ingresar</button>
-        </form>
-    </div>
 
-    <!-- Contenido Principal (oculto inicialmente) -->
-    <div id="mainContent" class="container mx-auto p-4 md:p-8">
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Tablero de Control y Foco</h1>
-            <p class="text-slate-600 mt-2">Herramienta para la gestión de prioridades de Operaciones</p>
-        </header>
-        <div class="flex flex-col items-center mb-8">
-            <!-- Sección de últimas 2 tareas (siempre visible, arriba del botón) -->
-            <div id="lastTasksSection" class="last-tasks-section">
-                <h3 class="font-bold text-sm mb-2">Últimas 2 Tareas Agregadas</h3>
-                <ul id="lastTasksList" class="space-y-2"></ul>
-            </div>
-            <button id="addTaskBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center">
+<body class="text-slate-800">
+  <div id="loginModal">
+    <form id="loginForm" class="bg-white rounded-lg shadow-2xl p-8">
+      <div class="text-center mb-6">
+        <img src="https://res.cloudinary.com/dway4iqeh/image/upload/v1763209064/logo_z1ffik.png" alt="Logo" class="mx-auto h-24 w-auto">
+      </div>
+      <h2 class="text-2xl font-bold mb-6 text-center">Iniciar Sesión</h2>
+      <div class="mb-4">
+        <label for="username" class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
+        <input type="text" id="username" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+      </div>
+      <div class="mb-6">
+        <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+        <input type="password" id="password" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+      </div>
+      <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Ingresar</button>
+    </form>
+  </div>
+
+  <div id="mainContent" class="container mx-auto p-4 md:p-8">
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Gestor de Tareas</h1>
+      <p class="text-slate-600 mt-2">Herramienta para la gestión de tareas Operaciones Concepción</p>
+    </header>
+    <div class="flex flex-col items-center mb-8">
+      <div id="lastTasksSection" class="last-tasks-section">
+        <h3 class="font-bold text-sm mb-2">Últimas 2 Tareas Agregadas</h3>
+        <ul id="lastTasksList" class="space-y-2"></ul>
+      </div>
+      <button id="addTaskBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
                 Añadir Nueva Tarea
             </button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div id="backlog" class="bg-slate-200 rounded-lg p-4 kanban-column">
-                <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Asignado</h2>
-                <div id="backlog-tasks" class="space-y-2 task-container"></div>
-            </div>
-            <div id="focus" class="bg-slate-200 rounded-lg p-4 kanban-column">
-                <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Recibido</h2>
-                <div id="focus-tasks" class="space-y-2 task-container"></div>
-            </div>
-            <div id="progress" class="bg-slate-200 rounded-lg p-4 kanban-column">
-                <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">En Progreso</h2>
-                <div id="progress-tasks" class="space-y-2 task-container"></div>
-            </div>
-            <div id="done" class="bg-slate-200 rounded-lg p-4 kanban-column">
-                <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Finalizado</h2>
-                <div id="done-tasks" class="space-y-2 task-container"></div>
-            </div>
-        </div>
-        <section class="mt-12">
-            <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Dashboard Estadístico</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Resumen por Estado</h3>
-                    <div class="chart-container"><canvas id="statusChart"></canvas></div>
-                </div>
-                <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Tareas por Responsable</h3>
-                    <div class="chart-container"><canvas id="assigneeChart"></canvas></div>
-                </div>
-                <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Estado de Avance por Responsable</h3>
-                    <div class="chart-container"><canvas id="progressByAssigneeChart"></canvas></div>
-                </div>
-                <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
-                    <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Estadístico de Resultados (Tasa de Finalización)</h3>
-                    <div class="chart-container"><canvas id="completionRateChart"></canvas></div>
-                </div>
-            </div>
-        </section>
-        <section class="mt-12">
-            <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Estadísticas Mensuales de Tareas</h2>
-            <div class="bg-slate-800 p-4 rounded-lg shadow-lg w-full">
-                <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Tareas Creadas y Finalizadas Mensualmente</h3>
-                <div class="chart-container h-[300px] md:h-[400px]"> <canvas id="monthlyTasksChart"></canvas>
-                </div>
-            </div>
-        </section>
-        <section class="mt-12">
-            <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Planilla de Gestión de Tareas</h2>
-            <div class="bg-white p-4 rounded-lg shadow-lg overflow-x-auto" id="task-table-wrapper">
-                <label for="filtro-responsable" class="block text-sm font-medium text-slate-700 mb-2">Filtrar por Responsable:</label>
-                <input type="text" id="filtro-responsable" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 mb-4" placeholder="Ej: Operaciones" onkeyup="filtrarTablaPorResponsable()">
-                <table class="w-full text-sm text-left text-slate-600">
-                    <thead class="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 bg-white z-10">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Tarea</th>
-                            <th scope="col" class="px-6 py-3">Responsable</th>
-                            <th scope="col" class="px-6 py-3">Solicitante</th>
-                            <th scope="col" class="px-6 py-3">Fecha Asignación</th>
-                            <th scope="col" class="px-6 py-3">Fecha Límite</th>
-                            <th scope="col" class="px-6 py-3">Fecha Finalización</th>
-                            <th scope="col" class="px-6 py-3">Categoría</th>
-                            <th scope="col" class="px-6 py-3">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="task-table-body"></tbody>
-                </table>
-            </div>
-        </section>
     </div>
-    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md overflow-y-auto max-h-[80vh]">
-            <h2 id="modalTitle" class="text-2xl font-bold mb-6">Añadir Tarea</h2>
-            <form id="taskForm">
-                <input type="hidden" id="task-id">
-                <input type="hidden" id="task-creation-date">
-                <input type="hidden" id="task-completion-date">
-                <div class="mb-4">
-                    <label for="taskTitle" class="block text-sm font-medium text-slate-700 mb-1">Título</label>
-                    <input type="text" id="taskTitle" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div class="mb-4">
-                    <label for="taskDesc" class="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
-                    <textarea id="taskDesc" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
-                </div>
-                <div class="mb-4">
-                    <label for="taskResponsible" class="block text-sm font-medium text-slate-700 mb-1">Responsable</label>
-                    <select id="taskResponsible" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div id="backlog" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Asignado</h2>
+        <div id="backlog-tasks" class="space-y-2 task-container"></div>
+      </div>
+      <div id="focus" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Recibido</h2>
+        <div id="focus-tasks" class="space-y-2 task-container"></div>
+      </div>
+      <div id="progress" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">En Progreso</h2>
+        <div id="progress-tasks" class="space-y-2 task-container"></div>
+      </div>
+      <div id="done" class="bg-slate-200 rounded-lg p-4 kanban-column">
+        <h2 class="font-bold text-lg mb-4 text-slate-700 text-center">Finalizado</h2>
+        <div id="done-tasks" class="space-y-2 task-container"></div>
+      </div>
+    </div>
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Dashboard Estadístico</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
+          <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Resumen por Estado</h3>
+          <div class="chart-container"><canvas id="statusChart"></canvas></div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
+          <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Tareas por Responsable</h3>
+          <div class="chart-container"><canvas id="assigneeChart"></canvas></div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
+          <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Estado de Avance por Responsable</h3>
+          <div class="chart-container"><canvas id="progressByAssigneeChart"></canvas></div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg shadow-lg">
+          <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Estadístico de Resultados (Tasa de
+            Finalización)</h3>
+          <div class="chart-container"><canvas id="completionRateChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Estadísticas Mensuales de Tareas</h2>
+      <div class="bg-slate-800 p-4 rounded-lg shadow-lg w-full">
+        <h3 class="font-semibold text-lg mb-4 text-slate-200 text-center">Tareas Creadas y Finalizadas Mensualmente</h3>
+        <div class="chart-container h-[300px] md:h-[400px]"> <canvas id="monthlyTasksChart"></canvas>
+        </div>
+      </div>
+    </section>
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Planilla de Gestión de Tareas</h2>
+      <div class="bg-white p-4 rounded-lg shadow-lg overflow-x-auto" id="task-table-wrapper">
+        <label for="filtro-responsable" class="block text-sm font-medium text-slate-700 mb-2">Filtrar por Responsable:</label>
+        <input type="text" id="filtro-responsable" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 mb-4" placeholder="Ej: Operaciones" onkeyup="filtrarTabla()">
+        <label for="filtro-solicitante" class="block text-sm font-medium text-slate-700 mb-2">Filtrar por Solicitante:</label>
+        <input type="text" id="filtro-solicitante" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 mb-4" placeholder="Ej: Comercial" onkeyup="filtrarTabla()">
+        <table class="w-full text-sm text-left text-slate-600">
+          <thead class="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 bg-white z-10">
+            <tr>
+              <th scope="col" class="px-6 py-3">Tarea</th>
+              <th scope="col" class="px-6 py-3">Responsable</th>
+              <th scope="col" class="px-6 py-3">Solicitante</th>
+              <th scope="col" class="px-6 py-3">Fecha Asignación</th>
+              <th scope="col" class="px-6 py-3">Fecha Límite</th>
+              <th scope="col" class="px-6 py-3">Fecha Finalización</th>
+              <th scope="col" class="px-6 py-3">Categoría</th>
+              <th scope="col" class="px-6 py-3">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="task-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md overflow-y-auto max-h-[80vh]">
+      <h2 id="modalTitle" class="text-2xl font-bold mb-6">Añadir Tarea</h2>
+      <form id="taskForm">
+        <input type="hidden" id="task-id">
+        <input type="hidden" id="task-creation-date">
+        <input type="hidden" id="task-completion-date">
+        <div class="mb-4">
+          <label for="taskTitle" class="block text-sm font-medium text-slate-700 mb-1">Título</label>
+          <input type="text" id="taskTitle" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+        </div>
+        <div class="mb-4">
+          <label for="taskDesc" class="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+          <textarea id="taskDesc" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+        </div>
+        <div class="mb-4">
+          <label for="taskResponsible" class="block text-sm font-medium text-slate-700 mb-1">Responsable</label>
+          <select id="taskResponsible" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
                         <option value="" disabled selected>Selecciona un responsable</option>
                         <option value="Branch">Branch</option>
                         <option value="J. Servicio">J. Servicio</option>
@@ -337,10 +396,10 @@
                         <option value="Acreditación RRHH">Acreditación RRHH</option>
                         <option value="AP. VISION">AP. VISION</option>
                     </select>
-                </div>
-                <div class="mb-4">
-                    <label for="taskRequester" class="block text-sm font-medium text-slate-700 mb-1">Solicitante</label>
-                    <select id="taskRequester" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+        </div>
+        <div class="mb-4">
+          <label for="taskRequester" class="block text-sm font-medium text-slate-700 mb-1">Solicitante</label>
+          <select id="taskRequester" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
                         <option value="" disabled selected>Selecciona un solicitante</option>
                         <option value="Branch">Branch</option>
                         <option value="J. Servicio">J. Servicio</option>
@@ -357,43 +416,42 @@
                         <option value="Acreditación RRHH">Acreditación RRHH</option>
                         <option value="AP. VISION">AP. VISION</option>
                     </select>
-                </div>
-                <div class="mb-4">
-                    <label for="taskDeadline" class="block text-sm font-medium text-slate-700 mb-1">Fecha Límite</label>
-                    <input type="date" id="taskDeadline" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div class="mb-6">
-                    <label for="taskCategory" class="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
-                    <select id="taskCategory" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div class="mb-4">
+          <label for="taskDeadline" class="block text-sm font-medium text-slate-700 mb-1">Fecha Límite</label>
+          <input type="date" id="taskDeadline" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div class="mb-6">
+          <label for="taskCategory" class="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+          <select id="taskCategory" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         <option value="assigned">Asignado</option>
                         <option value="received">Recibido</option>
                         <option value="in_process">En Proceso</option>
                         <option value="finished">Finalizado</option>
                     </select>
-                </div>
-                <div class="flex justify-end space-x-4">
-                    <button type="button" id="cancelBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar</button>
-                </div>
-            </form>
         </div>
-    </div>
-    <!-- Modal para detalles de tarea -->
-    <div id="taskDetailModal">
-        <div id="taskDetailContent" class="bg-white rounded-lg shadow-2xl p-8">
-            <h2 class="text-2xl font-bold mb-6">Detalles de la Tarea</h2>
-            <div id="taskDetailBody"></div>
-            <div class="flex justify-end mt-6">
-                <button id="closeDetailBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cerrar</button>
-            </div>
+        <div class="flex justify-end space-x-4">
+          <button type="button" id="cancelBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar</button>
         </div>
+      </form>
     </div>
-    <div id="contextMenu">
-        <button id="editTaskBtn">✏️ Editar Tarea</button>
-        <button id="deleteTaskBtn">🗑️ Eliminar Tarea</button>
+  </div>
+  <div id="taskDetailModal">
+    <div id="taskDetailContent" class="bg-white rounded-lg shadow-2xl p-8">
+      <h2 class="text-2xl font-bold mb-6">Detalles de la Tarea</h2>
+      <div id="taskDetailBody"></div>
+      <div class="flex justify-end mt-6">
+        <button id="closeDetailBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cerrar</button>
+      </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+  </div>
+  <div id="contextMenu">
+    <button id="editTaskBtn">✏️ Editar Tarea</button>
+    <button id="deleteTaskBtn">🗑️ Eliminar Tarea</button>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
             const taskModal = document.getElementById('taskModal');
             const taskForm = document.getElementById('taskForm');
             const contextMenu = document.getElementById('contextMenu');
@@ -536,6 +594,8 @@
             function updateAll() {
                 updateCharts();
                 updateTaskTable();
+                // Al actualizar todo, aseguramos que el filtro se aplique a la tabla fresca
+                filtrarTabla(); 
             }
             // Actualiza todos los gráficos del dashboard
             function updateCharts() {
@@ -944,8 +1004,8 @@
                             category: draggedItem.dataset.category,
                             creationDate: draggedItem.dataset.creationDate,
                             // Actualizar completionDate y status
-                            status: col.id,
-                            completionDate: (col.id === 'done') ? new Date().toISOString().split('T')[0] : '',
+                            status: col.id.replace('-tasks', ''), // Obtener 'backlog', 'focus', etc.
+                            completionDate: (col.id.includes('done')) ? new Date().toISOString().split('T')[0] : '',
                         };
                        
                         // Llama a updateTaskData para persistir el cambio de status y fecha
@@ -1009,26 +1069,45 @@
                     }
                 }
             });
+            
+            // Inicialización: cargar tareas al inicio
+            // No llamar loadAllTasks() aquí, ya que se llama después del login
         });
 
-        function filtrarTablaPorResponsable() {
-            var input = document.getElementById("filtro-responsable");
-            var filtro = input.value.toLowerCase();
+        // INICIO DE LA NUEVA FUNCIÓN DE FILTRADO UNIFICADA
+        function filtrarTabla() {
+            // Obtenemos los valores de los dos campos de filtro
+            var inputResponsable = document.getElementById("filtro-responsable").value.toLowerCase();
+            var inputSolicitante = document.getElementById("filtro-solicitante").value.toLowerCase();
+            
             var tableBody = document.getElementById("task-table-body");
             var rows = tableBody.getElementsByTagName("tr");
 
             for (var i = 0; i < rows.length; i++) {
-                var responsableCell = rows[i].getElementsByTagName("td")[1]; // Segunda columna: Responsable (índice 1)
-                if (responsableCell) {
-                    var texto = responsableCell.textContent || responsableCell.innerText;
-                    if (texto.toLowerCase().indexOf(filtro) > -1) {
-                        rows[i].style.display = "";
+                // Índices de las celdas en la tabla: 
+                // 1: Responsable, 2: Solicitante
+                var responsableCell = rows[i].getElementsByTagName("td")[1]; 
+                var solicitanteCell = rows[i].getElementsByTagName("td")[2]; 
+                
+                if (responsableCell && solicitanteCell) {
+                    var textoResponsable = responsableCell.textContent || responsableCell.innerText;
+                    var textoSolicitante = solicitanteCell.textContent || solicitanteCell.innerText;
+
+                    // Lógica de filtrado con operador AND (Y):
+                    // Debe coincidir con el filtro de Responsable Y con el filtro de Solicitante
+                    var coincideResponsable = textoResponsable.toLowerCase().indexOf(inputResponsable) > -1;
+                    var coincideSolicitante = textoSolicitante.toLowerCase().indexOf(inputSolicitante) > -1;
+
+                    if (coincideResponsable && coincideSolicitante) {
+                        rows[i].style.display = ""; // Mostrar si ambos criterios coinciden
                     } else {
-                        rows[i].style.display = "none";
+                        rows[i].style.display = "none"; // Ocultar si al menos uno no coincide
                     }
                 }
             }
         }
-    </script>
+        // FIN DE LA NUEVA FUNCIÓN DE FILTRADO UNIFICADA
+  </script>
 </body>
+
 </html>
