@@ -462,10 +462,13 @@
   <div id="taskDetailModal">
     <div id="taskDetailContent" class="bg-white rounded-lg shadow-2xl p-8">
       <h2 class="text-2xl font-bold mb-6">Detalles de la Tarea</h2>
-      <div id="taskDetailBody"></div>
-      <div class="flex justify-end mt-6">
-        <button id="closeDetailBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cerrar</button>
-      </div>
+      <form id="taskDetailForm">
+          <div id="taskDetailBody" class="space-y-4"></div>
+          <div class="flex justify-end mt-6 space-x-4">
+            <button type="button" id="closeDetailBtn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300">Cerrar</button>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar Cambios</button>
+          </div>
+      </form>
     </div>
   </div>
   <div id="contextMenu">
@@ -482,10 +485,12 @@
             const mainContent = document.getElementById('mainContent');
             const taskDetailModal = document.getElementById('taskDetailModal');
             const closeDetailBtn = document.getElementById('closeDetailBtn');
+            const taskDetailForm = document.getElementById('taskDetailForm');
            
             let charts = {};
             let currentContextMenuTask = null; // Para el menú contextual
             let draggedItem = null;
+            let currentDetailTask = null; // Para guardar la tarea que se está viendo en detalle
            
             // ¡IMPORTANTE! Esta es la URL de tu Google Apps Script
             const APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxqps6yuTqFzzE7e6hP-GowZWY9w-DKt_inKxNvZWTo-wfapeAijyFnlgQtSyoj5xHc/exec';
@@ -823,22 +828,92 @@
                 });
             }
 
-            // Función para mostrar detalles de tarea en modal
+            // --- MEJORA SOLICITADA: FUNCIÓN PARA MOSTRAR Y EDITAR DETALLES ---
             function showTaskDetails(task) {
+                currentDetailTask = task; // Guardar referencia de la tarea actual
                 const detailBody = document.getElementById('taskDetailBody');
+                
+                // Generar el formulario editable dentro del modal
                 detailBody.innerHTML = `
-                    <p><strong>Título:</strong> ${task.title}</p>
-                    <p><strong>Descripción:</strong> ${task.description}</p>
-                    <p><strong>Responsable:</strong> ${task.responsible}</p>
-                    <p><strong>Solicitante:</strong> ${task.requester}</p>
-                    <p><strong>Fecha Asignación:</strong> ${task.creationDate || 'N/A'}</p>
-                    <p><strong>Fecha Límite:</strong> ${task.deadline || 'N/A'}</p>
-                    <p><strong>Fecha Finalización:</strong> ${task.completionDate || 'N/A'}</p>
-                    <p><strong>Categoría:</strong> ${categoryMap[task.category]?.label || 'Desconocido'}</p>
-                    <p><strong>Estado:</strong> ${statusMap[task.status]?.label || 'Desconocido'}</p>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Título</label>
+                            <input type="text" id="editDetailTitle" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" value="${task.title}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Descripción</label>
+                            <textarea id="editDetailDesc" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500">${task.description}</textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase">Responsable</label>
+                                <select id="editDetailResponsible" class="w-full px-3 py-2 border border-slate-300 rounded-md">
+                                    ${document.getElementById('taskResponsible').innerHTML}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase">Solicitante</label>
+                                <select id="editDetailRequester" class="w-full px-3 py-2 border border-slate-300 rounded-md">
+                                    ${document.getElementById('taskRequester').innerHTML}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase">Fecha Límite</label>
+                                <input type="date" id="editDetailDeadline" class="w-full px-3 py-2 border border-slate-300 rounded-md" value="${task.deadline}">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase">Categoría</label>
+                                <select id="editDetailCategory" class="w-full px-3 py-2 border border-slate-300 rounded-md">
+                                    <option value="assigned" ${task.category === 'assigned' ? 'selected' : ''}>Asignado</option>
+                                    <option value="received" ${task.category === 'received' ? 'selected' : ''}>Recibido</option>
+                                    <option value="in_process" ${task.category === 'in_process' ? 'selected' : ''}>En Proceso</option>
+                                    <option value="finished" ${task.category === 'finished' ? 'selected' : ''}>Finalizado</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-md border border-slate-200 text-xs">
+                           <p><strong>Fecha Asignación:</strong> ${task.creationDate || 'N/A'}</p>
+                           <p><strong>Última Modificación:</strong> ${new Date(task.lastModified).toLocaleString()}</p>
+                        </div>
+                    </div>
                 `;
+                
+                // Cargar los valores correctos en los selects
+                document.getElementById('editDetailResponsible').value = task.responsible;
+                document.getElementById('editDetailRequester').value = task.requester;
+                
                 taskDetailModal.style.display = 'flex';
             }
+
+            // Manejar el guardado desde el modal de detalles
+            taskDetailForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!currentDetailTask) return;
+
+                const updatedData = {
+                    ...currentDetailTask, // Mantener ID, status y creación originales
+                    title: document.getElementById('editDetailTitle').value,
+                    description: document.getElementById('editDetailDesc').value,
+                    responsible: document.getElementById('editDetailResponsible').value,
+                    requester: document.getElementById('editDetailRequester').value,
+                    deadline: document.getElementById('editDetailDeadline').value,
+                    category: document.getElementById('editDetailCategory').value,
+                };
+
+                // Mostrar estado de carga (opcional pero recomendado)
+                const saveBtn = taskDetailForm.querySelector('button[type="submit"]');
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = "Guardando...";
+                saveBtn.disabled = true;
+
+                await updateTaskData(updatedData);
+
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+                taskDetailModal.style.display = 'none';
+            });
 
             // Cerrar modal de detalles
             closeDetailBtn.addEventListener('click', () => {
