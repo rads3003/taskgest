@@ -339,11 +339,29 @@
     </section>
     <section class="mt-12">
       <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Planilla de Gestión de Tareas</h2>
-      <div class="bg-white p-4 rounded-lg shadow-lg overflow-x-auto" id="task-table-wrapper">
-        <label for="filtro-responsable" class="block text-sm font-medium text-slate-700 mb-2">Filtrar por Responsable:</label>
-        <input type="text" id="filtro-responsable" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 mb-4" placeholder="Ej: Operaciones" onkeyup="filtrarTabla()">
-        <label for="filtro-solicitante" class="block text-sm font-medium text-slate-700 mb-2">Filtrar por Solicitante:</label>
-        <input type="text" id="filtro-solicitante" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 mb-4" placeholder="Ej: Comercial" onkeyup="filtrarTabla()">
+      <div class="bg-white p-6 rounded-lg shadow-lg overflow-x-auto" id="task-table-wrapper">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+                <label for="filtro-responsable" class="block text-sm font-medium text-slate-700 mb-1">Filtrar por Responsable:</label>
+                <input type="text" id="filtro-responsable" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Ej: Operaciones" onkeyup="filtrarTabla()">
+            </div>
+            <div>
+                <label for="filtro-solicitante" class="block text-sm font-medium text-slate-700 mb-1">Filtrar por Solicitante:</label>
+                <input type="text" id="filtro-solicitante" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Ej: Comercial" onkeyup="filtrarTabla()">
+            </div>
+            <div>
+                <label for="filtro-estado" class="block text-sm font-medium text-slate-700 mb-1">Filtrar por Estado:</label>
+                <select id="filtro-estado" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" onchange="filtrarTabla()">
+                    <option value="">Todos los estados</option>
+                    <option value="Backlog">Backlog</option>
+                    <option value="Foco Semana">Foco Semana</option>
+                    <option value="En Progreso">En Progreso</option>
+                    <option value="Finalizado">Finalizado</option>
+                </select>
+            </div>
+        </div>
+        <button onclick="limpiarFiltros()" class="mb-6 px-4 py-2 bg-slate-500 text-white rounded-md hover:bg-slate-600 transition-colors text-sm font-medium">Limpiar Filtros</button>
+        
         <table class="w-full text-sm text-left text-slate-600">
           <thead class="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 bg-white z-10">
             <tr>
@@ -1080,35 +1098,41 @@
 
         // INICIO DE LA NUEVA FUNCIÓN DE FILTRADO UNIFICADA
         function filtrarTabla() {
-            // Obtenemos los valores de los dos campos de filtro
             var inputResponsable = document.getElementById("filtro-responsable").value.toLowerCase();
             var inputSolicitante = document.getElementById("filtro-solicitante").value.toLowerCase();
+            var inputEstado = document.getElementById("filtro-estado").value.toLowerCase();
             
             var tableBody = document.getElementById("task-table-body");
             var rows = tableBody.getElementsByTagName("tr");
 
             for (var i = 0; i < rows.length; i++) {
-                // Índices de las celdas en la tabla: 
-                // 1: Responsable, 2: Solicitante
                 var responsableCell = rows[i].getElementsByTagName("td")[1]; 
                 var solicitanteCell = rows[i].getElementsByTagName("td")[2]; 
+                var estadoCell = rows[i].getElementsByTagName("td")[7]; 
                 
-                if (responsableCell && solicitanteCell) {
-                    var textoResponsable = responsableCell.textContent || responsableCell.innerText;
-                    var textoSolicitante = solicitanteCell.textContent || solicitanteCell.innerText;
+                if (responsableCell && solicitanteCell && estadoCell) {
+                    var textoResponsable = (responsableCell.textContent || responsableCell.innerText).toLowerCase();
+                    var textoSolicitante = (solicitanteCell.textContent || solicitanteCell.innerText).toLowerCase();
+                    var textoEstado = (estadoCell.textContent || estadoCell.innerText).toLowerCase();
 
-                    // Lógica de filtrado con operador AND (Y):
-                    // Debe coincidir con el filtro de Responsable Y con el filtro de Solicitante
-                    var coincideResponsable = textoResponsable.toLowerCase().indexOf(inputResponsable) > -1;
-                    var coincideSolicitante = textoSolicitante.toLowerCase().indexOf(inputSolicitante) > -1;
+                    var coincideResponsable = textoResponsable.indexOf(inputResponsable) > -1;
+                    var coincideSolicitante = textoSolicitante.indexOf(inputSolicitante) > -1;
+                    var coincideEstado = inputEstado === "" || textoEstado.indexOf(inputEstado) > -1;
 
-                    if (coincideResponsable && coincideSolicitante) {
-                        rows[i].style.display = ""; // Mostrar si ambos criterios coinciden
+                    if (coincideResponsable && coincideSolicitante && coincideEstado) {
+                        rows[i].style.display = ""; 
                     } else {
-                        rows[i].style.display = "none"; // Ocultar si al menos uno no coincide
+                        rows[i].style.display = "none"; 
                     }
                 }
             }
+        }
+
+        function limpiarFiltros() {
+            document.getElementById("filtro-responsable").value = "";
+            document.getElementById("filtro-solicitante").value = "";
+            document.getElementById("filtro-estado").value = "";
+            filtrarTabla();
         }
         // FIN DE LA NUEVA FUNCIÓN DE FILTRADO UNIFICADA
   </script>
